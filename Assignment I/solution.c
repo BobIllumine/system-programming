@@ -1,12 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
+#include <time.h>
 #include "libcoro.h"
 
 /**
  * You can compile and run this code using the commands:
  *
- * $> gcc solution.c libcoro.c
+ * $> gcc solution.c libcoro.c -lm
  * $> ./a.out
  */
 
@@ -67,14 +69,17 @@ static void merge(long arr[], int l, int m, int r)
  * @param l start index
  * @param r end index
  */
-static void merge_sort(long arr[], int l, int r)
+static void merge_sort(char *coroutine, long arr[], int l, int r)
 {
-	struct coro *this = coro_this();
     if (r > l) {
+        printf("%s: entered `merge_sort()`, l -- %d, r -- %d\n", coroutine, l, r);
         int m = l + (r - l) / 2;
-        merge_sort(arr, l, m);
-        merge_sort(arr, m + 1, r);
+        merge_sort(coroutine, arr, l, m);
+        coro_yield();
+        merge_sort(coroutine, arr, m + 1, r);
+        coro_yield();
         merge(arr, l, m, r);
+        coro_yield();
     }
 }
 
@@ -82,29 +87,37 @@ static void merge_sort(long arr[], int l, int r)
  * Coroutine body. This code is executed by all the coroutines. Here you
  * implement your solution, sort each individual file.
  */
-static int coroutine_func_f(void *dummy)
+static int coroutine_func_f(void *context)
 {
-	struct coro *this = coro_this();
-
-    char *filename;
-    int i;
+    clock_t coro_start = clock();
+    struct coro *this = coro_this();
+    char *name = context;
+    printf("Started %s\n", name);
+    int i = 0;
     // Until all files are sorted
     while(i != FILE_COUNT) {
+        printf("%s: switch count -- %lld\n", (char *)context, coro_switch_count(this));
+        FILE *file;
         if(done[i]) {
             ++i;
             continue;
         }
         else
-            filename = strdup(filenames[i]);
-        FILE *file = fopen(filename, "r");
+            file = fopen(filenames[i], "r");
 
         int arr_cnt = 0;
         /* Since we don't know the amount of numbers in the file beforehand, we need to allocate
          * a lot of memory and clean it later
          */
-        long *raw_arr = (long *) malloc(1000001 * sizeof(long));
-        while (!feof(file))
+        long *raw_arr = (long *) malloc(10 * sizeof(long));
+        int cur_size = 10;
+        while(!feof(file)) {
+            if(arr_cnt == cur_size - 1) {
+                raw_arr = realloc(raw_arr, cur_size * 2 * sizeof(long));
+                cur_size *= 2;
+            }
             fscanf(file, "%ld ", &raw_arr[arr_cnt++]);
+        }
 
         arrays[i] = (long *) malloc(arr_cnt * sizeof(long));
         for (int j = 0; j < arr_cnt; ++j)
@@ -112,13 +125,15 @@ static int coroutine_func_f(void *dummy)
 
         free(raw_arr);
 
-        merge_sort(arrays[i], 0, arr_cnt - 1);
         done[i] = true;
         lengths[i] = arr_cnt;
+        merge_sort(name, arrays[i], 0, arr_cnt - 1);
         fclose(file);
         ++i;
+        printf("%s: yield\n", name);
         coro_yield();
     }
+    printf("%s: execution time -- %fms\n", name, (double)((clock() - coro_start) * 1000 / CLOCKS_PER_SEC));
 	return 0;
 }
 
@@ -127,13 +142,14 @@ static int coroutine_func_f(void *dummy)
  */
 int main(int argc, char **argv)
 {
+    clock_t start = clock();
     if(argc < 3) {
         printf("Use: $ gcc solution.c -o main <COROUTINES_NUM> <INPUT_FILE1> <INPUT_FILE2> ... <INPUT_FILEN>");
         return 0;
     }
 	/* Initialize our coroutine global cooperative scheduler. */
 	coro_sched_init();
-
+    char *endptr;
     // Allocating memory
     FILE_COUNT = argc - 2;
     filenames = (char **) malloc(FILE_COUNT * sizeof(char *));
@@ -142,13 +158,18 @@ int main(int argc, char **argv)
     done = (bool *) malloc(FILE_COUNT * sizeof(bool));
 
     for(int i = 2; i < argc; ++i) {
-        filenames[i - 2] = strdup(argv[i]);
+        filenames[i - 2] = argv[i];
         done[i - 2] = false;
     }
-    char *endptr;
+
 	/* Start several coroutines. */
-	for (int i = 0; i < strtol(argv[1], &endptr, 10); ++i) {
-		coro_new(coroutine_func_f, NULL);
+	for (long i = 0; i < strtol(argv[1], &endptr, 10); ++i) {
+        // Calculating the length of the coroutine name
+        long size = (i ? (long)ceil(log10(i)) + 7 : 8);
+        char *name = (char*)malloc(size * sizeof(char));
+        sprintf(name, "coro_%ld", i);
+		coro_new(coroutine_func_f, strdup(name));
+        free(name);
 	}
 	/* Wait for all the coroutines to end. */
 	struct coro *c;
@@ -193,20 +214,19 @@ int main(int argc, char **argv)
             pivot += lengths[i];
         }
     }
+    clock_t finish = clock();
     // Output
     for(int i = 0; i < pivot; ++i)
         fprintf(output, "%ld ", sorted_arr[i]);
-
     // We need to free all dynamically allocated memory
-    for(int i = 0; i < FILE_COUNT; ++i) {
+    for(int i = 0; i < FILE_COUNT; ++i)
         free(arrays[i]);
-        free(filenames[i]);
-    }
+    free(arrays);
     free(done);
     free(lengths);
     free(sorted_arr);
-    free(arrays);
     free(filenames);
     fclose(output);
+    printf("Execution time: %fms", (double)(finish - start) * 1000 / CLOCKS_PER_SEC);
 	return 0;
 }
