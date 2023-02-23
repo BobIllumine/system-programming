@@ -69,16 +69,21 @@ static void merge(long arr[], int l, int m, int r)
  * @param l start index
  * @param r end index
  */
-static void merge_sort(char *coroutine, long arr[], int l, int r)
+static void merge_sort(double *timer, long arr[], int l, int r)
 {
+    clock_t start = clock();
     if (r > l) {
-        printf("%s: entered `merge_sort()`, l -- %d, r -- %d\n", coroutine, l, r);
         int m = l + (r - l) / 2;
-        merge_sort(coroutine, arr, l, m);
+        *timer += (double)(clock() - start);
+        merge_sort(timer, arr, l, m);
         coro_yield();
-        merge_sort(coroutine, arr, m + 1, r);
+        start = clock();
+        *timer += (double)(clock() - start);
+        merge_sort(timer, arr, m + 1, r);
         coro_yield();
+        start = clock();
         merge(arr, l, m, r);
+        *timer += (double)(clock() - start);
         coro_yield();
     }
 }
@@ -89,14 +94,15 @@ static void merge_sort(char *coroutine, long arr[], int l, int r)
  */
 static int coroutine_func_f(void *context)
 {
-    clock_t coro_start = clock();
+    double total_time = 0;
     struct coro *this = coro_this();
     char *name = context;
     printf("Started %s\n", name);
+    clock_t coro_start = clock();
     int i = 0;
     // Until all files are sorted
     while(i != FILE_COUNT) {
-        printf("%s: switch count -- %lld\n", (char *)context, coro_switch_count(this));
+        coro_start = clock();
         FILE *file;
         if(done[i]) {
             ++i;
@@ -127,13 +133,16 @@ static int coroutine_func_f(void *context)
 
         done[i] = true;
         lengths[i] = arr_cnt;
-        merge_sort(name, arrays[i], 0, arr_cnt - 1);
+        total_time += (double)(clock() - coro_start);
+        merge_sort(&total_time, arrays[i], 0, arr_cnt - 1);
+        coro_start = clock();
         fclose(file);
         ++i;
-        printf("%s: yield\n", name);
+        total_time += (double)(clock() - coro_start);
         coro_yield();
     }
-    printf("%s: execution time -- %fms\n", name, (double)((clock() - coro_start) * 1000 / CLOCKS_PER_SEC));
+    printf("%s: execution time -- %.1fus\n", name, total_time * 1e6 / CLOCKS_PER_SEC);
+    free(name);
 	return 0;
 }
 
@@ -142,13 +151,13 @@ static int coroutine_func_f(void *context)
  */
 int main(int argc, char **argv)
 {
-    clock_t start = clock();
     if(argc < 3) {
         printf("Use: $ gcc solution.c -o main <COROUTINES_NUM> <INPUT_FILE1> <INPUT_FILE2> ... <INPUT_FILEN>");
         return 0;
     }
-	/* Initialize our coroutine global cooperative scheduler. */
-	coro_sched_init();
+    /* Initialize our coroutine global cooperative scheduler. */
+    coro_sched_init();
+    clock_t start = clock();
     char *endptr;
     // Allocating memory
     FILE_COUNT = argc - 2;
@@ -162,8 +171,10 @@ int main(int argc, char **argv)
         done[i - 2] = false;
     }
 
+    long coroutines = strtol(argv[1], &endptr, 10);
+
 	/* Start several coroutines. */
-	for (long i = 0; i < strtol(argv[1], &endptr, 10); ++i) {
+	for (long i = 0; i < coroutines; ++i) {
         // Calculating the length of the coroutine name
         long size = (i ? (long)ceil(log10(i)) + 7 : 8);
         char *name = (char*)malloc(size * sizeof(char));
@@ -179,11 +190,13 @@ int main(int argc, char **argv)
 		 * do anything you want. Like check its exit status, for
 		 * example. Don't forget to free the coroutine afterwards.
 		 */
+        printf("Switch count -- %lld\n", coro_switch_count(c));
 		printf("Finished %d\n", coro_status(c));
 		coro_delete(c);
 	}
 	/* All coroutines have finished. */
 
+    clock_t merge_start = clock();
     // Output file
     FILE* output = fopen("output.txt", "w");
 
@@ -227,6 +240,7 @@ int main(int argc, char **argv)
     free(sorted_arr);
     free(filenames);
     fclose(output);
-    printf("Execution time: %fms", (double)(finish - start) * 1000 / CLOCKS_PER_SEC);
+    printf("Final merge: %.1fus\n", (double)(finish - merge_start) * 1e6 / CLOCKS_PER_SEC);
+    printf("Execution time: %.1fus", (double)(finish - start) * 1e6 / CLOCKS_PER_SEC);
 	return 0;
 }
