@@ -1,0 +1,3 @@
+/home/riseinokoe/Stuff/Personal/Uni/InnoStuff/S23/System Programming/Assignment II/cmake-build-debug/CMakeFiles/Assignment_II.dir
+/home/riseinokoe/Stuff/Personal/Uni/InnoStuff/S23/System Programming/Assignment II/cmake-build-debug/CMakeFiles/edit_cache.dir
+/home/riseinokoe/Stuff/Personal/Uni/InnoStuff/S23/System Programming/Assignment II/cmake-build-debug/CMakeFiles/rebuild_cache.dir

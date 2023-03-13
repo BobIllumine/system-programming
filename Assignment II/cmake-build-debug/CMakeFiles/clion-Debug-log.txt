@@ -1,0 +1,4 @@
+/home/riseinokoe/.local/share/JetBrains/Toolbox/apps/CLion/ch-0/223.8617.54/bin/cmake/linux/x64/bin/cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_MAKE_PROGRAM=/home/riseinokoe/.local/share/JetBrains/Toolbox/apps/CLion/ch-0/223.8617.54/bin/ninja/linux/x64/ninja -G Ninja -S "/home/riseinokoe/Stuff/Personal/Uni/InnoStuff/S23/System Programming/Assignment II" -B "/home/riseinokoe/Stuff/Personal/Uni/InnoStuff/S23/System Programming/Assignment II/cmake-build-debug"
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/riseinokoe/Stuff/Personal/Uni/InnoStuff/S23/System Programming/Assignment II/cmake-build-debug
