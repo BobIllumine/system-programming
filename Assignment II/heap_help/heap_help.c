@@ -7,7 +7,7 @@
 #include <unistd.h>
 
 void *(*default_malloc)(size_t) = NULL;
-void (*default_free)() = NULL;
+void (*default_free)(void *) = NULL;
 void *(*default_calloc)(size_t, size_t) = NULL;
 void *(*default_realloc)(void *, size_t) = NULL;
 char *(*default_strdup)(const char *) = NULL;
