@@ -8,28 +8,37 @@
 #include <sys/wait.h>
 #include <string.h>
 #include "heap_help/heap_help.h"
+#include "regex_lib/regex_lib.h"
+
+#define min(a, b) (a < b ? a : b)
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
+typedef struct regex_match reg_m_t;
 
 int main() {
     heaph_init();
-    char **strs = (char**)malloc(2 * sizeof(char*));
-    char strings[3][5] = {"helo", "wold", "wowu"};
-    int len = 2, cur_id = 0;
-//    strs = (char**)realloc(strs, len * 2 * sizeof(char*));
-//    len *= 2;
-    while(cur_id < 3) {
-        if(cur_id == len - 1) {
-            strs = (char**)realloc(strs, len * 2 * sizeof(char*));
-            len *= 2;
+    // (([^[:space:]'"]+)*[[:space:]]*)*
+    // ['"](([^'"]+)[[:space]])*['"]
+    //(([^[:space:]'"]+)+[[:space:]]+)(['"](([^'"]+)[[:space:]]*)*['"])?
+    // (([^[:space:]'"]+)+[[:space:]]+)|
+
+    //(['].*['])|(["].*["])|([^[:space:]'"]+)
+    //([`'"]([^`'"]*)[`'"])|([^[:space:]'"]+)
+    char pattern[] = "([`]([^`]+)*[`])|([']([^']+)*['])|([\"]([^\"]+)*[\"])|([^[:space:]'\"]+)";
+    char str[] = "        ls -i 'h' 'i`hello`'  \"\"     'p'          ";
+    printf("%s\n", str);
+    reg_m_t reg_m = match(pattern, str, 1);
+    printf("matches -- %d, size -- %d\n", reg_m.n_matches, reg_m.size);
+    char **groups = reg_m.get_group(&reg_m, 0);
+    for(int i = 0; i < reg_m.n_matches; ++i) {
+        if(strcmp(groups[i], "\0") == 0) {
+            printf("wtf\n");
+            break;
         }
-        *strs = strdup(strings[cur_id]);
-        cur_id++;
-        ++strs;
+        printf("%s\n", groups[i]);
+        free(groups[i]);
     }
-    for(int i = 0; i < 3; ++i) {
-        printf("%s\n", strs[i]);
-        free(strs[i]);
-    }
-    free(strs);
-    printf("memory leaks u stoopid bicht - %lu", heaph_get_alloc_count());
+    free(groups);
+    reg_m.free(&reg_m);
+    printf("memory leaks - %lu", heaph_get_alloc_count());
     return 0;
 }
