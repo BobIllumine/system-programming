@@ -13,7 +13,7 @@ struct regex_match {
     int n_groups;
     int size;
     void (*free)(struct regex_match*);
-    void (*add)(struct regex_match*, regmatch_t*, int);
+    void (*add)(struct regex_match*, regmatch_t*);
     char** (*get_group)(struct regex_match*, int);
 };
 

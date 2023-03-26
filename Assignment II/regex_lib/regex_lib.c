@@ -3,7 +3,6 @@
 //
 
 #include "regex_lib.h"
-#include <unistd.h>
 #include <malloc.h>
 #include <string.h>
 
@@ -22,24 +21,20 @@ char** reg_get_group(struct regex_match *reg_m, int group) {
     return reg_group;
 }
 void reg_match_free(struct regex_match *reg_m) {
-    for(int i = 0; i < reg_m->n_groups; ++i)
+    for(int i = 0; i < reg_m->n_matches; ++i)
         free(reg_m->groups[i]);
     free(reg_m->groups);
     free(reg_m->str);
 }
-void reg_add(struct regex_match *reg_m, regmatch_t *matched, int len) {
+void reg_add(struct regex_match *reg_m, regmatch_t *matched) {
     if(reg_m->n_matches + 1 == reg_m->size) {
         reg_m->groups = (regmatch_t **) realloc(reg_m->groups, sizeof(regmatch_t *) * reg_m->size * 2);
         reg_m->size *= 2;
     }
-    int min_len = min(reg_m->n_groups, len);
     reg_m->groups[reg_m->n_matches] = (regmatch_t *) malloc(sizeof(regmatch_t) * reg_m->n_groups);
     for(int i = 0; i < reg_m->n_groups; ++i) {
         regmatch_t tmp;
         tmp.rm_so = -1, tmp.rm_eo = -1;
-        reg_m->groups[reg_m->n_matches][i] = tmp;
-    }
-    for(int i = 0; i < min_len; ++i) {
         reg_m->groups[reg_m->n_matches][i] = matched[i];
 //        printf("[reg_add]: i = %d, rm_so = %lu, rm_eo = %lu\n", i, matched[i].rm_so, matched[i].rm_eo);
     }
@@ -83,15 +78,19 @@ struct regex_match match(const char *pattern, char *str, int n_groups) {
 //                printf("[match]: last group: %d\n", g);
                 break;
             }
-//            char *copy = strdup(p_s);
-//            copy[pmatch[g].rm_eo] = 0;
+            char *copy = strdup(p_s);
+            copy[pmatch[g].rm_eo] = 0;
 //            printf("[match]: run %d, group %d: [%llu-%llu, %llu] -- \"%s\"\n", i, g, pmatch[g].rm_so, pmatch[g].rm_eo, universal_off, copy + pmatch[g].rm_so);
-//            free(copy);
+            free(copy);
         }
         p_s += pmatch[0].rm_eo;
-        for(int j = 0; j < n_groups + 1; ++j)
-            pmatch[j].rm_so += universal_off, pmatch[j].rm_eo += universal_off;
-        result.add(&result, pmatch, g);
+        for(int j = 0; j < n_groups + 1; ++j) {
+            if(pmatch[j].rm_so == -1)
+                pmatch[j].rm_eo = -1;
+            else
+                pmatch[j].rm_so += universal_off, pmatch[j].rm_eo += universal_off;
+        }
+        result.add(&result, pmatch);
     }
     regfree(&regex);
     return result;
