@@ -24,9 +24,9 @@ int main() {
     //(['].*['])|(["].*["])|([^[:space:]'"]+)
     //([`'"]([^`'"]*)[`'"])|([^[:space:]'"]+)
     char pattern[] = "([`]([^`]+)*[`])|([']([^']+)*['])|([\"]([^\"]+)*[\"])|([^[:space:]'\"]+)";
-    char str[] = "        ls -i 'h' 'i`hello`'  \"\"     'p'          ";
+    char str[] = "        ls -i 'h' 'i`hello`' fsfs                        ";
     printf("%s\n", str);
-    reg_m_t reg_m = match(pattern, str, 1);
+    reg_m_t reg_m = match(pattern, str, 2);
     printf("matches -- %d, size -- %d\n", reg_m.n_matches, reg_m.size);
     char **groups = reg_m.get_group(&reg_m, 0);
     for(int i = 0; i < reg_m.n_matches; ++i) {
